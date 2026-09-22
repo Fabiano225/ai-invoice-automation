@@ -1,0 +1,1296 @@
+{
+  "name": "Buchhalter",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "// Wir holen den Text-Output der KI\n// Je nach n8n Version heißt das Feld oft \"message.content\" oder nur \"content\"\n// Wir prüfen beides sicherheitshalber.\nconst input = $input.first().json.output[0].content[0].text\n\nlet jsonString = input;\n\n// 1. Markdown-Müll entfernen (falls die KI ```json schreibt)\njsonString = jsonString.replace(/```json/g, \"\");\njsonString = jsonString.replace(/```/g, \"\");\n\n// 2. Leerzeichen trimmen\njsonString = jsonString.trim();\n\n// 3. Den Text in echtes JSON-Objekt umwandeln\ntry {\n  const parsedData = JSON.parse(jsonString);\n  \n  // Die neuen Daten zurückgeben\n  return [{ json: parsedData }];\n} catch (error) {\n  // Falls es schiefgeht, Fehler ausgeben\n  return [{ json: { error: \"Konnte JSON nicht lesen\", raw_input: input } }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        592,
+        0
+      ],
+      "id": "1f92c97d-db2a-4592-b4bf-2f6140cd1073",
+      "name": "JSON format"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        336,
+        -256
+      ],
+      "id": "2b9bf3d7-bcf4-4bea-b814-01cae73e1409",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "text": "Du bist eine spezialisierte OCR-KI für deutsche Buchhaltungsbelege.\nDeine Oberste Direktive: Sei präzise. RAMP-UP (Raten) IST VERBOTEN.\n\nAktuelles Datum: {{ $now.format('DD.MM.YYYY') }}\n\nREGELN:\n1. Datum: Format DD.MM.YYYY.\n2. Händler: Name des Geschäfts.\n3. Betrag: Brutto-Gesamtsumme (Format 12.34).\n4. Kategorie: [Tanken, Material, Verpflegung, Sonstiges].\n\n5. STEUERSATZ (Kritisch):\n- Suche explizit nach \"0%\", \"Steuerfrei\", \"Umsatzsteuerbefreit\", \"Gemäß § 19 UStG\" (Kleinunternehmer) oder \"Briefmarke/Porto\".\n- WENN du eines dieser Worte findest ODER wenn kein Steuerbetrag explizit ausgewiesen ist: Setze steuersatz auf 0.\n- WENN du \"7%\" oder \"Bücher\" oder \"Lebensmittel\" findest: Setze steuersatz auf 7.\n- NUR WENN \"19%\" oder \"MwSt\" mit einem Betrag > 0 explizit gedruckt ist: Setze steuersatz auf 19.\n- Rate NIEMALS 19, nur weil es ein deutscher Beleg ist. Beweis ist nötig.\n\nAntworte NUR mit JSON:\n{\n\"datum\": \"DD.MM.YYYY\",\n\"haendler\": \"String\",\n\"betrag_brutto\": Number,\n\"steuersatz\": Number,\n\"kategorie\": \"String\"\n}",
+        "inputType": "base64",
+        "binaryPropertyName": "=Foto",
+        "simplify": false,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        416,
+        0
+      ],
+      "id": "aef0e393-99c3-4b1a-8585-da3597b85da9",
+      "name": "Analyze image"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1136,
+        64
+      ],
+      "id": "b9948795-4640-4cdd-9671-976bb9ec0726",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "upload",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -640,
+        16
+      ],
+      "id": "468c3d0a-643f-47a3-bba8-9986ab03c271",
+      "name": "Scan Webhook"
+    },
+    {
+      "parameters": {
+        "inputDataFieldName": "=Foto",
+        "name": "={{ $now.format('dd.MM.yyyy HH:mm:ss') }}_beleg.{{ $binary.Foto.fileExtension }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "={{ $('Search Date folder').item.json.id }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        512,
+        -256
+      ],
+      "id": "1b1112fa-c31b-4f26-9620-405178852bf9",
+      "name": "Upload photo"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_USER_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "User"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "User"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Token",
+              "lookupValue": "={{ $json.body.token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -368,
+        16
+      ],
+      "id": "aee526b6-b0f4-4f00-ad2f-5c3e791b733d",
+      "name": "Nutzerabfrage"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -96,
+        0
+      ],
+      "id": "ab5d17ab-f294-46ab-94a9-116205542e5a",
+      "name": "Merge1"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json: {empty: items.length == 1 && Object.keys(items[0].json).length == 0}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -96,
+        -256
+      ],
+      "id": "a87a480d-29c8-4e9a-a1e4-03c15e897f15",
+      "name": "Check empty value1"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json: {empty: items.length == 1 && Object.keys(items[0].json).length == 0}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -96,
+        -512
+      ],
+      "id": "7ead1adb-9e48-4eca-88e7-60ae3f7b2ea2",
+      "name": "Check empty value"
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "name": "={{ $('Nutzerabfrage').item.json.Name }}",
+        "driveId": {
+          "__rl": true,
+          "value": "My Drive",
+          "mode": "list",
+          "cachedResultName": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_BASE_FOLDER_ID",
+          "mode": "list",
+          "cachedResultName": "Belege_App_Uploads"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -608,
+        -512
+      ],
+      "id": "be2e2cdb-f6ea-4152-9a65-917ae470b933",
+      "name": "Create Name folder"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a864387f-2d60-431c-a4c2-26de1fa5bff2",
+              "leftValue": "={{$json[\"empty\"]}}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        96,
+        -512
+      ],
+      "id": "49430348-5142-4fde-a988-95478ac85a5b",
+      "name": "If Name folder does not exist"
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "queryString": "={{ $now.format('yyyy-MM') }}",
+        "filter": {
+          "driveId": {
+            "mode": "list",
+            "value": "My Drive"
+          },
+          "folderId": {
+            "__rl": true,
+            "value": "={{ $('Search Name folder').item.json.id }}",
+            "mode": "id"
+          },
+          "whatToSearch": "folders"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -288,
+        -256
+      ],
+      "id": "f80c4c4d-7c10-453e-a26c-326a33231d7f",
+      "name": "Search Date folder",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "name": "={{ $now.format('yyyy-MM') }}",
+        "driveId": {
+          "__rl": true,
+          "value": "My Drive",
+          "mode": "list",
+          "cachedResultName": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "={{ $('Search Name folder').item.json.id }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -608,
+        -256
+      ],
+      "id": "8ccd627f-9893-4949-9466-c769f75d95f4",
+      "name": "Create Date folder"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a864387f-2d60-431c-a4c2-26de1fa5bff2",
+              "leftValue": "={{$json[\"empty\"]}}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        96,
+        -256
+      ],
+      "id": "f3103283-a1fa-4757-9374-bf4e2ba7cb4e",
+      "name": "If Date folder does not exist"
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "queryString": "={{ $('Nutzerabfrage').item.json.Name }}",
+        "filter": {
+          "driveId": {
+            "mode": "list",
+            "value": "My Drive"
+          },
+          "folderId": {
+            "__rl": true,
+            "value": "REPLACE_WITH_BASE_FOLDER_ID",
+            "mode": "list",
+            "cachedResultName": "Belege_App_Uploads"
+          },
+          "whatToSearch": "folders"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -288,
+        -512
+      ],
+      "id": "c07f2bd8-47b6-4686-bcba-4c3d01e13016",
+      "name": "Search Name folder",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=Hier ist der Inhalt einer Rechnung (PDF):\n\"\"\"\n{{ $json.text }}\n\"\"\"\n\nBitte extrahiere folgende Daten strikt als JSON:\n{\n  \"datum\": \"DD.MM.YYYY\",\n  \"haendler\": \"Name des Geschäfts\",\n  \"betrag_brutto\": 0.00 (Zahl mit Punkt),\n  \"steuersatz\": 0 (nur 19, 7 oder 0),\n  \"kategorie\": \"String\"\n}"
+            }
+          ]
+        },
+        "simplify": false,
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        480,
+        208
+      ],
+      "id": "23d3cc0e-c110-4a0b-9f2b-2e667f023a56",
+      "name": "Message a model"
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "Foto",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        304,
+        208
+      ],
+      "id": "d2134fd9-b847-4f45-86cf-7b6414bfcf40",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Wir holen den Text-Output der KI\n// Je nach n8n Version heißt das Feld oft \"message.content\" oder nur \"content\"\n// Wir prüfen beides sicherheitshalber.\nconst input = $input.first().json.output[0].content[0].text\n\nlet jsonString = input;\n\n// 1. Markdown-Müll entfernen (falls die KI ```json schreibt)\njsonString = jsonString.replace(/```json/g, \"\");\njsonString = jsonString.replace(/```/g, \"\");\n\n// 2. Leerzeichen trimmen\njsonString = jsonString.trim();\n\n// 3. Den Text in echtes JSON-Objekt umwandeln\ntry {\n  const parsedData = JSON.parse(jsonString);\n  \n  // Die neuen Daten zurückgeben\n  return [{ json: parsedData }];\n} catch (error) {\n  // Falls es schiefgeht, Fehler ausgeben\n  return [{ json: { error: \"Konnte JSON nicht lesen\", raw_input: input } }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        208
+      ],
+      "id": "a8584097-896a-4a96-bd3e-4cebd65701c6",
+      "name": "JSON format1"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        928,
+        64
+      ],
+      "id": "8662b069-2986-4855-bb52-dd4a8b0d674c",
+      "name": "Merge2"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "93788d80-6c66-438c-ad43-453329de808a",
+              "leftValue": "={{ $binary.Foto.mimeType }}",
+              "rightValue": "image",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        128,
+        16
+      ],
+      "id": "d54703a4-34a2-4859-ad18-869f159d9ebf",
+      "name": "Photo or PDF?"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "save",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1008,
+        304
+      ],
+      "id": "e220da5f-8297-4066-9101-5a282f6f9f63",
+      "name": "Save Webhook"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_USER_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "User"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "User"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Token",
+              "lookupValue": "={{ $json.body.token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -800,
+        304
+      ],
+      "id": "3e420230-f22c-492b-9f8d-8af865f5ed55",
+      "name": "Jahresabfrage"
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "queryString": "={{ $('Jahresabfrage').item.json.Name }}",
+        "filter": {
+          "driveId": {
+            "mode": "list",
+            "value": "My Drive"
+          },
+          "folderId": {
+            "__rl": true,
+            "value": "REPLACE_WITH_BASE_FOLDER_ID",
+            "mode": "list",
+            "cachedResultName": "Belege_App_Uploads"
+          },
+          "whatToSearch": "folders"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -416,
+        304
+      ],
+      "id": "b1546bda-8114-4e29-910a-9863b2ec43da",
+      "name": "Find Name Folder",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "queryString": "={{ $('Find out Sheetname').item.json.sheetName }}",
+        "filter": {
+          "driveId": {
+            "mode": "list",
+            "value": "My Drive"
+          },
+          "folderId": {
+            "__rl": true,
+            "value": "={{ $json.id }}",
+            "mode": "id"
+          },
+          "whatToSearch": "files"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -208,
+        304
+      ],
+      "id": "8e03eba1-71ee-4c19-9341-ff7071fed83c",
+      "name": "Find Sheet File",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json: {empty: items.length == 1 && Object.keys(items[0].json).length == 0}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1008,
+        496
+      ],
+      "id": "1e559487-34d6-4da5-9f35-17b4351805c6",
+      "name": "Check empty value2"
+    },
+    {
+      "parameters": {
+        "resource": "spreadsheet",
+        "title": "={{ $('Find out Sheetname').item.json.sheetName }}",
+        "sheetsUi": {
+          "sheetValues": [
+            {
+              "title": "Belege"
+            }
+          ]
+        },
+        "options": {
+          "locale": "de_DE"
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -560,
+        496
+      ],
+      "id": "5e2871c8-5c42-4582-ac7e-6484ee487aa0",
+      "name": "Create Sheet"
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "headers",
+              "value": "={{ [\n  \"Datum\",\n  \"Händler\",\n  \"Betrag (Brutto)\",\n  \"Steuer (%)\",\n  \"Kategorie\"\n] }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "9ad41ca0-2ac1-43db-8da6-c4fd2578aaea",
+      "name": "Define headers",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [
+        -224,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $('Create Sheet').item.json[\"spreadsheetId\"] }}/values/Belege!A:Z",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "valueInputOption",
+              "value": "RAW"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "range",
+              "value": "Belege!A:Z"
+            },
+            {
+              "name": "values",
+              "value": "={{ [$json.headers] }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "47d9b784-a287-4564-8c0d-7c549bf3972e",
+      "name": "Update Google Sheet",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -48,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const datum = new Date(); // oder woher dein Datum kommt\nconst year = new Date().getFullYear();\nconst name = $('Jahresabfrage').first().json.Name;\n\nreturn {\n  json: {\n    ...$json,\n    year: year,\n    sheetName: `${name}_Belege_${year}`, // z.B. \"Hannes_Belege_2025\"\n    kunde: name\n  }\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -608,
+        304
+      ],
+      "id": "cb76a270-2426-4359-b6c3-24a04495dd8a",
+      "name": "Find out Sheetname"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "53c20ccf-d609-4802-818b-1daca7047f3a",
+              "leftValue": "={{$json[\"empty\"]}}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -800,
+        496
+      ],
+      "id": "1a3a4145-95c8-4a1a-82a2-458909968573",
+      "name": "Does Sheet exist?"
+    },
+    {
+      "parameters": {
+        "operation": "move",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $('Create Sheet').item.json.spreadsheetId }}",
+          "mode": "id"
+        },
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "={{ $('Find Name Folder').item.json.id }}",
+          "mode": "id"
+        }
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -400,
+        496
+      ],
+      "id": "414cb975-435d-4ed7-a6d6-e31cb7c4a630",
+      "name": "Move Sheet"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Find Sheet File').item.json.id }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "=Belege",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Datum": "={{ $('Save Webhook').item.json.body.datum }}",
+            "Kategorie": "={{ $('Save Webhook').item.json.body.kategorie }}",
+            "Steuer (%)": "={{ $('Save Webhook').item.json.body.steuersatz }}",
+            "Betrag (Brutto)": "={{ $('Save Webhook').item.json.body.betrag }}",
+            "Händler": "={{ $('Save Webhook').item.json.body.haendler }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Datum",
+              "displayName": "Datum",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Händler",
+              "displayName": "Händler",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Betrag (Brutto)",
+              "displayName": "Betrag (Brutto)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Steuer (%)",
+              "displayName": "Steuer (%)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Kategorie",
+              "displayName": "Kategorie",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        160,
+        496
+      ],
+      "id": "cc30777a-2d04-4cb6-8a69-f5daabd414d5",
+      "name": "Fill out Rows"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Find Sheet File').item.json.id }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "=Belege",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Datum": "={{ $('Save Webhook').item.json.body.datum }}",
+            "Kategorie": "={{ $('Save Webhook').item.json.body.kategorie }}",
+            "Steuer (%)": "={{ $('Save Webhook').item.json.body.steuersatz }}",
+            "Betrag (Brutto)": "={{ $('Save Webhook').item.json.body.betrag }}",
+            "Händler": "={{ $('Save Webhook').item.json.body.haendler }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Datum",
+              "displayName": "Datum",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Händler",
+              "displayName": "Händler",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Betrag (Brutto)",
+              "displayName": "Betrag (Brutto)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Steuer (%)",
+              "displayName": "Steuer (%)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Kategorie",
+              "displayName": "Kategorie",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -560,
+        688
+      ],
+      "id": "821483a2-e0db-42ba-80ec-7fcdeeda0687",
+      "name": "Fill out Rows1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "JSON format": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Upload photo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze image": {
+      "main": [
+        [
+          {
+            "node": "JSON format",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scan Webhook": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          },
+          {
+            "node": "Nutzerabfrage",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Nutzerabfrage": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Search Name folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "Photo or PDF?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check empty value1": {
+      "main": [
+        [
+          {
+            "node": "If Date folder does not exist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check empty value": {
+      "main": [
+        [
+          {
+            "node": "If Name folder does not exist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Name folder": {
+      "main": [
+        [
+          {
+            "node": "Search Name folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Name folder does not exist": {
+      "main": [
+        [
+          {
+            "node": "Search Date folder",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Name folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Date folder": {
+      "main": [
+        [
+          {
+            "node": "Check empty value1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Date folder": {
+      "main": [
+        [
+          {
+            "node": "Search Date folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Date folder does not exist": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Date folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Name folder": {
+      "main": [
+        [
+          {
+            "node": "Check empty value",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "JSON format1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "JSON format1": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge2": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Photo or PDF?": {
+      "main": [
+        [
+          {
+            "node": "Analyze image",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Webhook": {
+      "main": [
+        [
+          {
+            "node": "Jahresabfrage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jahresabfrage": {
+      "main": [
+        [
+          {
+            "node": "Find out Sheetname",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Name Folder": {
+      "main": [
+        [
+          {
+            "node": "Find Sheet File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Sheet File": {
+      "main": [
+        [
+          {
+            "node": "Check empty value2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check empty value2": {
+      "main": [
+        [
+          {
+            "node": "Does Sheet exist?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Sheet": {
+      "main": [
+        [
+          {
+            "node": "Move Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Define headers": {
+      "main": [
+        [
+          {
+            "node": "Update Google Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Google Sheet": {
+      "main": [
+        [
+          {
+            "node": "Fill out Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find out Sheetname": {
+      "main": [
+        [
+          {
+            "node": "Find Name Folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Does Sheet exist?": {
+      "main": [
+        [
+          {
+            "node": "Create Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fill out Rows1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Move Sheet": {
+      "main": [
+        [
+          {
+            "node": "Define headers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Berlin",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

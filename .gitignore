@@ -1,0 +1,15 @@
+# Secrets / local config
+.env
+.env.*
+*.pem
+*.key
+
+# Private n8n backups
+*n8n*backup*.tar.gz
+*.sqlite
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

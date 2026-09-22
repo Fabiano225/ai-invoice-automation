@@ -1,0 +1,26 @@
+version: '3'
+
+services:
+  caddy:
+    image: caddy:alpine
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    command: caddy reverse-proxy --from https://n8n.example.com --to http://n8n:5678
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n
+    restart: always
+    environment:
+      - N8N_HOST=n8n
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - WEBHOOK_URL=https://n8n.example.com/
+      - N8N_SECURE_COOKIE=false
+    volumes:
+      - n8n_data:/home/node/.n8n
+
+volumes:
+  n8n_data:
+    external: true
