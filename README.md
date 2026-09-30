@@ -185,17 +185,6 @@ It demonstrates practical experience with:
 ![N8N Workflow](docs/n8n-workflow.png)
 ![AI Node](docs/analyze-image-node.png)
 
-Recommended screenshots:
-
-- Upload interface
-- Review / correction interface
-- Full n8n workflow overview
-- Image vs. PDF branch
-- OpenAI extraction node
-- Google Drive folder logic
-- Google Sheets creation / append logic
-- Final Drive / Sheets result using test data
-
 ## Running the sanitized version
 
 The repository contains sanitized portfolio exports. They are intended to demonstrate the implementation and will not run without configuration.
@@ -232,3 +221,5 @@ The public repository intentionally excludes:
 - real user or invoice data
 
 The workflow files included here are sanitized portfolio versions of the original implementation.
+
+Available for freelance n8n projects: [Upwork-Link](https://www.upwork.com/freelancers/~01d79931657deb324f)
