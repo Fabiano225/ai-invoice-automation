@@ -6,7 +6,7 @@ The project was built as an end-to-end business automation: users upload an imag
 
 ## Demo
 
-[Watch the demo](docs/demo.mp4)
+[Watch the demo](https://youtu.be/HJhNPB6jTAc)
 
 ## Business problem
 
@@ -182,7 +182,8 @@ It demonstrates practical experience with:
 
 ## Screenshots
 
-Add selected screenshots here rather than screenshots of every node.
+[N8N Workflow](docs/n8n%20workflow.png)
+[AI Node](docs/analyze%20image%20node.png)
 
 Recommended screenshots:
 
