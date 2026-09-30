@@ -1,3 +1,5 @@
+Available for freelance n8n projects: [Upwork-Link](https://www.upwork.com/freelancers/~01d79931657deb324f)
+
 # AI-Powered Invoice & Receipt Automation
 
 A self-hosted document-processing workflow that turns uploaded receipts and invoices into structured bookkeeping data using **n8n, OpenAI, Google Drive, Google Sheets, Docker, Caddy, and Azure**.
@@ -221,5 +223,3 @@ The public repository intentionally excludes:
 - real user or invoice data
 
 The workflow files included here are sanitized portfolio versions of the original implementation.
-
-Available for freelance n8n projects: [Upwork-Link](https://www.upwork.com/freelancers/~01d79931657deb324f)
