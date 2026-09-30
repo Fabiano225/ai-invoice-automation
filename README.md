@@ -182,8 +182,8 @@ It demonstrates practical experience with:
 
 ## Screenshots
 
-[N8N Workflow](docs/n8n%20workflow.png)
-[AI Node](docs/analyze%20image%20node.png)
+[N8N Workflow](docs/n8n-workflow.png)
+[AI Node](docs/analyze-image-node.png)
 
 Recommended screenshots:
 
